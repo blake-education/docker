@@ -1033,6 +1033,7 @@ func (cli *DockerCli) CmdPs(args ...string) error {
 	size := cmd.Bool("s", false, "Display sizes")
 	all := cmd.Bool("a", false, "Show all containers. Only running containers are shown by default.")
 	noTrunc := cmd.Bool("notrunc", false, "Don't truncate output")
+	outputJson := cmd.Bool("json", false, "Output as raw json")
 	nLatest := cmd.Bool("l", false, "Show only the latest created container, include non-running ones.")
 	since := cmd.String("sinceId", "", "Show only containers created since Id, include non-running ones.")
 	before := cmd.String("beforeId", "", "Show only container created before Id, include non-running ones.")
@@ -1064,6 +1065,11 @@ func (cli *DockerCli) CmdPs(args ...string) error {
 	body, _, err := cli.call("GET", "/containers/json?"+v.Encode(), nil)
 	if err != nil {
 		return err
+	}
+
+	if *outputJson {
+		fmt.Fprintf(cli.out, "%s\n", string(body))
+		return nil
 	}
 
 	var outs []APIContainers

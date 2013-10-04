@@ -2,6 +2,7 @@ package docker
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"github.com/dotcloud/docker/utils"
 	"io"
@@ -578,4 +579,45 @@ func TestRunAutoRemove(t *testing.T) {
 	if len(globalRuntime.List()) > 0 {
 		t.Fatalf("failed to remove container automatically: container %s still exists", temporaryContainerID)
 	}
+}
+
+// Expected behaviour: docker ps -json ouputs container list json
+func TestPsJson(t *testing.T) {
+	stdout, stdoutPipe := io.Pipe()
+
+	cli := NewDockerCli(nil, stdoutPipe, ioutil.Discard, testDaemonProto, testDaemonAddr)
+	defer cleanup(globalRuntime)
+
+	c := make(chan struct{})
+	go func() {
+		defer close(c)
+		if err := cli.CmdRun(unitTestImageID, "/bin/true"); err != nil {
+			t.Fatal(err)
+		}
+		if err := cli.CmdPs("-a", "-json"); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	setTimeout(t, "Reading command output time out", 2*time.Second, func() {
+		cmdOutput, err := bufio.NewReader(stdout).ReadString('\n')
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		var psObjects []map[string]interface{}
+		err = json.Unmarshal([]byte(cmdOutput), &psObjects)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if psObjects[0]["Image"] != "docker-test-image:latest" && psObjects[0]["Command"] != "/bin/true" {
+			t.Fatalf("docker ps -json should output json, not %s", cmdOutput)
+		}
+	})
+
+	setTimeout(t, "CmdRun timed out", 5*time.Second, func() {
+		<-c
+	})
+
 }

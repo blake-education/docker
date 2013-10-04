@@ -619,5 +619,46 @@ func TestPsJson(t *testing.T) {
 	setTimeout(t, "CmdRun timed out", 5*time.Second, func() {
 		<-c
 	})
+}
 
+// Expected behaviour: docker history -json ouputs container history as json
+func TestHistoryJson(t *testing.T) {
+	stdout, stdoutPipe := io.Pipe()
+
+	cli := NewDockerCli(nil, stdoutPipe, ioutil.Discard, testDaemonProto, testDaemonAddr)
+	defer cleanup(globalRuntime)
+
+	c := make(chan struct{})
+	go func() {
+		defer close(c)
+		//if err := cli.CmdRun(unitTestImageID, "/bin/true"); err != nil {
+		//t.Fatal(err)
+		//}
+		if err := cli.CmdHistory("-json", unitTestImageID); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	setTimeout(t, "Reading command output time out", 2*time.Second, func() {
+		cmdOutput, err := bufio.NewReader(stdout).ReadString('\n')
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		t.Log("output", cmdOutput)
+
+		var historyObjects []APIHistory
+		err = json.Unmarshal([]byte(cmdOutput), &historyObjects)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if historyObjects[0].Tags[0] != "docker-test-image:latest" {
+			t.Fatalf("docker history -json should output json, not %s", cmdOutput)
+		}
+	})
+
+	setTimeout(t, "CmdRun timed out", 5*time.Second, func() {
+		<-c
+	})
 }

@@ -706,6 +706,7 @@ func (cli *DockerCli) CmdRmi(args ...string) error {
 
 func (cli *DockerCli) CmdHistory(args ...string) error {
 	cmd := Subcmd("history", "IMAGE", "Show the history of an image")
+	outputJson := cmd.Bool("json", false, "Output as raw json")
 	if err := cmd.Parse(args); err != nil {
 		return nil
 	}
@@ -717,6 +718,11 @@ func (cli *DockerCli) CmdHistory(args ...string) error {
 	body, _, err := cli.call("GET", "/images/"+cmd.Arg(0)+"/history", nil)
 	if err != nil {
 		return err
+	}
+
+	if *outputJson {
+		fmt.Fprintf(cli.out, "%s\n", string(body))
+		return nil
 	}
 
 	var outs []APIHistory
